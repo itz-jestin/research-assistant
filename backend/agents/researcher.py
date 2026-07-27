@@ -66,17 +66,9 @@ Return ONLY valid JSON.
     "sources": ["url1","url2"]
 }}
 """
+        structured_llm = llm.with_structured_output(ResearchResult)
 
-        response = llm.invoke(prompt)
-
-        content = response.content.strip()
-
-        if content.startswith("```"):
-            content = content.replace("```json", "").replace("```", "").strip()
-
-        data = json.loads(content)
-
-        validated = ResearchResult(**data)
+        validated = structured_llm.invoke(prompt)
 
         results.append(validated.model_dump())
 

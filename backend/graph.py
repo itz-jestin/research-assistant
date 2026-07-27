@@ -15,7 +15,7 @@ def route_after_critic(state):
     if state["retries"] >= 2:
         return END
 
-    return "researcher"
+    return "writer"
 
 
 builder = StateGraph(ResearchState)
@@ -35,7 +35,7 @@ builder.add_conditional_edges(
     "critic",
     route_after_critic,
     {
-        "researcher": "researcher",
+        "writer": "writer",
         END: END
     }
 )

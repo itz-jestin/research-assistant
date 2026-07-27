@@ -77,3 +77,11 @@ backend/chroma_db/
 # Uploaded files
 # ===========================
 backend/uploads/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env
