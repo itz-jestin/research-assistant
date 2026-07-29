@@ -5,6 +5,8 @@ from graph import graph
 from pydantic import BaseModel
 from utils.pdf_generator import generate_pdf
 import os
+from fastapi.responses import StreamingResponse
+import json
 
 app = FastAPI(
     title="Research Assistant API",
@@ -44,25 +46,35 @@ async def research(request: QueryRequest):
         "query": request.query,
         "sub_questions": [],
         "research_results": [],
+        "final_report": "",
         "critique": {},
         "feedback": "",
         "retries": 0,
-        "final_report": ""
     }
 
-    result = graph.invoke(state)
-    pdf_path = generate_pdf(
-    result["final_report"],
-    "reports/report.pdf"
-)
+    def event_generator():
+        final_state = None
 
+        for event in graph.stream(state):
+            print(event)
 
-    return {
-    "report": result["final_report"],
-    "critique": result["critique"],
-    "download_url": f"/download/{os.path.basename(pdf_path)}"
-}  
+            yield f"data: {json.dumps(event, default=str)}\n\n"
 
+            for _, value in event.items():
+                if isinstance(value, dict):
+                    final_state = value
+
+        if final_state:
+            yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 @app.get("/download/{filename}")
 async def download_report(filename: str):
 

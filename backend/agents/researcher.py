@@ -1,19 +1,27 @@
+import json
+
+from utils.logger import logger
 from tools.search import search_web
 from tools.llm import llm
-
 from schemas.researcher import ResearchResult
 from state import ResearchState
 
 
 def researcher(state: ResearchState):
 
+    logger.info("Researcher started")
+
     results = []
 
-    feedback = state.get("critique", {}).get("feedback", "")
+    feedback = state["feedback"]
 
-    for question in state["sub_questions"]:
+    for index, question in enumerate(state["sub_questions"], start=1):
+
+        logger.info(f"Researching question {index}: {question}")
 
         search_results = search_web(question)
+
+        logger.info(f"Found {len(search_results)} search results")
 
         context = ""
 
@@ -65,12 +73,20 @@ Return ONLY valid JSON.
 }}
 """
 
-        validated = llm.with_structured_output(
-            ResearchResult
-        ).invoke(prompt)
+        logger.info("Sending request to LLM")
+
+        response = llm.with_structured_output(ResearchResult).invoke(prompt)
+
+        logger.info("LLM response received")
+
+        validated = response
 
         results.append(validated.model_dump())
 
+        logger.info(f"Completed question {index}")
+
     state["research_results"] = results
+
+    logger.info(f"Researcher completed {len(results)} questions")
 
     return state

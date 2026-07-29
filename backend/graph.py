@@ -6,16 +6,21 @@ from agents.researcher import researcher
 from agents.writer import writer
 from agents.critic import critic
 
+def should_retry(state):
+    print("Retries:",state["retries"])
+    print("Approved:",state["critique"]["approved"])
+    critique = state["critique"]
+    retries = state["retries"]
 
-def route_after_critic(state):
+    if critique["approved"]:
+        return "approved"
 
-    if state["critique"]["approved"]:
-        return END
+    if retries >= 2:
+        return "approved"
 
-    if state["retries"] >= 2:
-        return END
+    return "retry"
 
-    return "writer"
+
 
 
 builder = StateGraph(ResearchState)
@@ -33,11 +38,11 @@ builder.add_edge("writer", "critic")
 
 builder.add_conditional_edges(
     "critic",
-    route_after_critic,
+    should_retry,
     {
-        "writer": "writer",
-        END: END
-    }
+        "approved": END,
+        "retry": "researcher",
+    },
 )
 
 graph = builder.compile()

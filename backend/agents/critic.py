@@ -1,5 +1,4 @@
-import json
-
+from utils.logger import logger
 from state import ResearchState
 from tools.llm import llm
 from schemas.critic import CriticResult
@@ -7,84 +6,57 @@ from schemas.critic import CriticResult
 
 def critic(state: ResearchState):
 
+    logger.info("Critic started")
+
     report = state["final_report"]
 
     prompt = f"""
 You are a senior research reviewer.
 
-Evaluate the following report.
+Review the following report.
 
 {report}
 
-Evaluate it on the following criteria:
+Return your response as valid JSON.
 
-1. Coverage
-2. Clarity
-3. Structure
-4. Source Quality
-5. Accuracy
+Evaluate:
 
-Scoring Rules
+1. Accuracy
+2. Coverage
+3. Clarity
+4. Structure
+5. Source quality
 
-Coverage:
-0 = Poor
-10 = Excellent
-
-Clarity:
-0 = Poor
-10 = Excellent
-
-Structure:
-0 = Poor
-10 = Excellent
-
-Source Quality:
-0 = Poor
-10 = Excellent
-
-Overall Score:
-0-100
-
-Approve the report only if
-
-- Overall score >= 85
-- Coverage >= 8
-- Clarity >= 8
-- Structure >= 8
-- Source Quality >= 8
-
-Provide concise feedback describing what should be improved.
-Return ONLY valid JSON.
+Return:
 
 {{
     "approved": true,
-    "score": 90,
+    "score": 95,
     "coverage": 9,
     "clarity": 9,
     "structure": 9,
     "source_quality": 9,
-    "feedback": "Excellent report."
+    "feedback": "..."
 }}
 """
 
-    response = llm.invoke(prompt)
+    logger.info("Sending report to critic LLM")
 
-    content = response.content.strip()
-    
-    if content.startswith("```"):
-        content = content.replace("```json", "").replace("```", "").strip()
-    print("===== RAW LLM RESPONSE =====")
-    print(content)
-    print("============================")
-    data = json.loads(content)
-    
-    critique = CriticResult(**data)
-    
-    state["critique"] = critique.model_dump()
-    
-    state["feedback"] = critique.feedback
-    
-    if not critique.approved:
+    response = llm.with_structured_output(CriticResult).invoke(prompt)
+
+    logger.info("Critic response received")
+
+    critique = response.model_dump()
+
+    state["critique"] = critique
+    state["feedback"] = critique["feedback"]
+
+    if critique["approved"]:
+        logger.info(f"Report approved with score {critique['score']}")
+    else:
+        logger.warning("Report rejected. Incrementing retry count.")
         state["retries"] += 1
+
+    logger.info("Critic completed")
 
     return state
