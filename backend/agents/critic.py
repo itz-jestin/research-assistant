@@ -3,17 +3,7 @@ import json
 from state import ResearchState
 from tools.llm import llm
 from schemas.critic import CriticResult
-from pydantic import BaseModel, Field
 
-
-class CriticResult(BaseModel):
-    approved: bool = Field(description="Whether the report meets quality standards.")
-    score: int = Field(ge=0, le=100, description="Overall quality score from 0 to 100.")
-    coverage: int = Field(ge=0, le=10)
-    clarity: int = Field(ge=0, le=10)
-    structure: int = Field(ge=0, le=10)
-    source_quality: int = Field(ge=0, le=10)
-    feedback: str
 
 def critic(state: ResearchState):
 
@@ -64,19 +54,36 @@ Approve the report only if
 - Source Quality >= 8
 
 Provide concise feedback describing what should be improved.
+Return ONLY valid JSON.
+
+{{
+    "approved": true,
+    "score": 90,
+    "coverage": 9,
+    "clarity": 9,
+    "structure": 9,
+    "source_quality": 9,
+    "feedback": "Excellent report."
+}}
 """
 
-    structured_llm = llm.with_structured_output(CriticResult)
+    response = llm.invoke(prompt)
 
-    critique = structured_llm.invoke(prompt)
-
-    # Save complete critique
+    content = response.content.strip()
+    
+    if content.startswith("```"):
+        content = content.replace("```json", "").replace("```", "").strip()
+    print("===== RAW LLM RESPONSE =====")
+    print(content)
+    print("============================")
+    data = json.loads(content)
+    
+    critique = CriticResult(**data)
+    
     state["critique"] = critique.model_dump()
-
-    # Save only feedback separately
+    
     state["feedback"] = critique.feedback
-
-    # Increase retry count only if rejected
+    
     if not critique.approved:
         state["retries"] += 1
 

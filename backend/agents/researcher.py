@@ -1,5 +1,3 @@
-import json
-
 from tools.search import search_web
 from tools.llm import llm
 
@@ -11,7 +9,7 @@ def researcher(state: ResearchState):
 
     results = []
 
-    feedback = state["feedback"]
+    feedback = state.get("critique", {}).get("feedback", "")
 
     for question in state["sub_questions"]:
 
@@ -66,9 +64,10 @@ Return ONLY valid JSON.
     "sources": ["url1","url2"]
 }}
 """
-        structured_llm = llm.with_structured_output(ResearchResult)
 
-        validated = structured_llm.invoke(prompt)
+        validated = llm.with_structured_output(
+            ResearchResult
+        ).invoke(prompt)
 
         results.append(validated.model_dump())
 
